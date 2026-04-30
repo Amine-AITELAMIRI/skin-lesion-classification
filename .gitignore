@@ -1,0 +1,7 @@
+__pycache__/
+*.pyc
+*.pth
+*.log
+melanoma-cancer-dataset/
+archive*.zip
+.DS_Store
