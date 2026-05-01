@@ -41,4 +41,6 @@ class SimpleCNN(nn.Module):
 
 def compter_parametres(model):
     entrainables = sum(p.numel() for p in model.parameters() if p.requires_grad)
-    print(f"Paramètres entraînables : {entrainables:,}")
+    total = sum(p.numel() for p in model.parameters())
+    print(f"Paramètres entraînables : {entrainables:,} / {total:,} au total")
+    return entrainables
