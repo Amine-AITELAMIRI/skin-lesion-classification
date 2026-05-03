@@ -1,0 +1,528 @@
+\documentclass[aspectratio=169]{beamer}
+
+\usepackage[utf8]{inputenc}
+\usepackage[T1]{fontenc}
+\usepackage[french]{babel}
+\usepackage{graphicx}
+\usepackage{booktabs}
+\usepackage{xcolor}
+\usepackage{amsmath}
+\usepackage{array}
+\usepackage{colortbl}
+\usepackage{listings}
+
+% ── Thème ──────────────────────────────────────────────────────
+\usetheme{Madrid}
+\definecolor{medblue}{RGB}{10, 75, 140}
+\definecolor{medlight}{RGB}{220, 235, 255}
+\definecolor{codegray}{RGB}{245, 245, 245}
+\setbeamercolor{structure}{fg=medblue}
+\setbeamercolor{block title}{bg=medblue, fg=white}
+\setbeamercolor{block body}{bg=medlight, fg=black}
+\setbeamercolor{alerted text}{fg=red!70!black}
+
+\setbeamersize{text margin left=6mm,text margin right=6mm}
+\setbeamertemplate{navigation symbols}{}
+\setlength{\abovedisplayskip}{2pt}
+\setlength{\belowdisplayskip}{2pt}
+\setlength{\abovedisplayshortskip}{1pt}
+\setlength{\belowdisplayshortskip}{1pt}
+
+\lstset{
+  basicstyle=\ttfamily\tiny,
+  backgroundcolor=\color{codegray},
+  frame=single, framerule=0pt,
+  breaklines=true,
+  keywordstyle=\color{medblue}\bfseries,
+  commentstyle=\color{gray},
+  language=Python,
+  showstringspaces=false,
+}
+
+\newcommand{\good}[1]{\textcolor{green!55!black}{\textbf{#1}}}
+\newcommand{\warn}[1]{\textcolor{orange!80!black}{\textbf{#1}}}
+\newcommand{\bad}[1]{\textcolor{red!70!black}{\textbf{#1}}}
+
+% ── Métadonnées ────────────────────────────────────────────────
+\title[CNN -- Détection du Mélanome]
+      {Classification d'Images Médicales\\par Réseaux de Neurones Convolutifs}
+\subtitle{Application à la Détection du Mélanome Cutané}
+\author[Aitelamiri, NOM]{Amine AITELAMIRI \and [Prénom NOM]}
+\institute{[Établissement \textbullet{} Filière]}
+\date{Mai 2026}
+
+\begin{document}
+
+% ============================================================
+% Slide titre
+% ============================================================
+\begin{frame}
+  \titlepage
+\end{frame}
+
+% ============================================================
+% 1. Le dataset
+% ============================================================
+\begin{frame}{1. Le dataset}
+  \begin{columns}[T,onlytextwidth]
+    \column{0.46\textwidth}
+      \begin{block}{Problème médical}
+        \small Classification \textbf{binaire} : Bénin / Malin\\[2pt]
+        Détection précoce : survie à 5 ans de \bad{25\%} à \good{99\%}
+      \end{block}
+      \vspace{3pt}
+      \begin{block}{Distribution}
+        \small\renewcommand{\arraystretch}{1.1}
+        \begin{tabular}{lcc}
+          \toprule & \textbf{Bénin} & \textbf{Malin} \\ \midrule
+          Train      & 6\,289 & 5\,590 \\
+          Validation & 1\,000 & 1\,000 \\ \bottomrule
+        \end{tabular}\\[2pt]
+        $224\times224$ px, RGB --- Quasi-équilibré
+      \end{block}
+      \vspace{3pt}
+      \begin{alertblock}{Difficultés anticipées}
+        \small Lésions visuellement similaires,
+        risque d'overfitting (dataset de taille modérée)
+      \end{alertblock}
+    \column{0.51\textwidth}
+      \centering
+      \includegraphics[width=\linewidth,height=0.72\textheight,keepaspectratio]{dataset_examples.png}
+  \end{columns}
+\end{frame}
+
+% ============================================================
+% 2. Représentation des données
+% ============================================================
+\begin{frame}[fragile]{2. Représentation des données --- tenseurs et canaux RGB}
+  \begin{columns}[T,onlytextwidth]
+    \column{0.53\textwidth}
+      \centering
+      \includegraphics[width=\linewidth,height=0.68\textheight,keepaspectratio]{image_tenseur.png}
+    \column{0.44\textwidth}
+      \begin{block}{Une image = tenseur \texttt{[C,H,W]}}
+        \small
+        \begin{itemize}\setlength\itemsep{4pt}
+          \item Forme : $[3, 224, 224]$ (RGB)
+          \item \texttt{ToTensor()} : pixels [0--255] $\to$ float [0,1]
+          \item Pixel PIL : \texttt{(181, 140, 144)}\\
+                Pixel tenseur : \texttt{0.710, 0.549, 0.565}
+        \end{itemize}
+      \end{block}
+      \vspace{4pt}
+      \begin{block}{Code}
+\begin{lstlisting}
+img = Image.open(path).convert("RGB")
+t = transforms.ToTensor()(img)
+# t.shape: [3, 224, 224]
+# min: 0.0000  max: 0.9412
+\end{lstlisting}
+      \end{block}
+  \end{columns}
+\end{frame}
+
+% ============================================================
+% 3. Dataset et DataLoader
+% ============================================================
+\begin{frame}[fragile]{3. Dataset et DataLoader}
+  \begin{columns}[T,onlytextwidth]
+    \column{0.49\textwidth}
+      \centering
+      \includegraphics[width=\linewidth,height=0.50\textheight,keepaspectratio]{batch_train.png}\\
+      \tiny Batch \texttt{[32, 3, 224, 224]}
+    \column{0.48\textwidth}
+      \begin{block}{\texttt{MelonaDataset}}
+\begin{lstlisting}
+class MelonaDataset(Dataset):
+    def __init__(self, root, transform):
+        # sous-dossiers -> classes
+        # liste de (chemin, label)
+    def __getitem__(self, idx):
+        img = Image.open(path)
+        return transform(img), label
+\end{lstlisting}
+      \end{block}
+      \vspace{2pt}
+      \begin{block}{\texttt{DataLoader}}
+\begin{lstlisting}
+loader = DataLoader(
+    dataset, batch_size=32,
+    shuffle=True, num_workers=0)
+\end{lstlisting}
+        \small \textbf{Shuffle} : mélange chaque époque.\\
+        \textbf{Batch} : 32 images en parallèle sur GPU.
+      \end{block}
+  \end{columns}
+\end{frame}
+
+% ============================================================
+% 4. Comprendre l'apprentissage
+% ============================================================
+\begin{frame}[fragile]{4. Comprendre l'apprentissage}
+  \begin{columns}[T,onlytextwidth]
+    \column{0.48\textwidth}
+      \begin{block}{Concepts clés}
+        \small
+        \begin{description}\setlength\itemsep{5pt}
+          \item[\textbf{Loss}] CrossEntropyLoss :
+                $\mathcal{L} = -\sum_c y_c \log \hat{p}_c$
+                (softmax implicite)
+          \item[\textbf{Gradient}] $\nabla_\theta \mathcal{L}$
+                par rétropropagation (\texttt{backward()})
+          \item[\textbf{Époque}] Passage complet sur le dataset.
+                Entraînement = 20 époques.
+          \item[\textbf{Accuracy}] corrects\,/\,total
+        \end{description}
+      \end{block}
+    \column{0.48\textwidth}
+      \begin{block}{Boucle d'entraînement}
+\begin{lstlisting}
+for imgs, lbls in train_loader:
+    optimizer.zero_grad()
+    out  = model(imgs.to(device))
+    loss = criterion(out, lbls.to(device))
+    loss.backward()
+    optimizer.step()
+\end{lstlisting}
+      \end{block}
+      \vspace{3pt}
+      \begin{block}{Évaluation}
+\begin{lstlisting}
+model.eval()            # desactive Dropout
+with torch.no_grad():   # pas de gradient
+    preds = model(imgs).argmax(dim=1)
+\end{lstlisting}
+      \end{block}
+  \end{columns}
+\end{frame}
+
+% ============================================================
+% 5. Premier CNN
+% ============================================================
+\begin{frame}{5. Premier CNN --- architecture et courbes}
+  \begin{columns}[T,onlytextwidth]
+    \column{0.37\textwidth}
+      \begin{block}{SimpleCNN}
+        \tiny\renewcommand{\arraystretch}{1.1}
+        \begin{tabular}{>{\bfseries}lc}
+          \toprule Couche & Sortie \\ \midrule
+          Input              & $3\times224\times224$ \\
+          Conv(3$\to$16)+Pool  & $16\times112\times112$ \\
+          Conv(16$\to$32)+Pool & $32\times56\times56$  \\
+          Conv(32$\to$64)+Pool & $64\times28\times28$  \\
+          Flatten            & $50\,176$             \\
+          Linear+ReLU        & $256$                 \\
+          Dropout(0.5)       & $256$                 \\
+          Linear             & $2$                   \\ \bottomrule
+        \end{tabular}\\[3pt]
+        \small \textbf{12.9M} paramètres\\
+        Adam lr=$10^{-3}$, 20 époques
+      \end{block}
+    \column{0.59\textwidth}
+      \centering
+      \includegraphics[width=\linewidth,height=0.44\textheight,keepaspectratio]{courbes_cnn_simple.png}
+      \vspace{2pt}
+      \begin{alertblock}{Limites observées}
+        \small Gap \warn{94.7\%} train vs \warn{91.4\%} val ($\Delta=3.3\%$) --- overfitting naissant.
+        Loss val remonte : le modèle mémorise.
+      \end{alertblock}
+  \end{columns}
+\end{frame}
+
+% ============================================================
+% 6. Normalisation
+% ============================================================
+\begin{frame}[fragile]{6. Normalisation --- pourquoi, comment, impact}
+  \begin{columns}[T,onlytextwidth]
+    \column{0.53\textwidth}
+      \centering
+      \includegraphics[width=\linewidth,height=0.70\textheight,keepaspectratio]{courbes_cnn_normalise.png}
+    \column{0.44\textwidth}
+      \begin{block}{Pourquoi ?}
+        \small Distribution centrée sur 0.72 (peau claire) :
+        gradients déséquilibrés. Normaliser centre et réduit chaque canal.
+      \end{block}
+      \vspace{3pt}
+      \begin{block}{Comment (stats sur TRAIN)}
+\begin{lstlisting}
+mean = [0.723, 0.556, 0.539]
+std  = [0.183, 0.193, 0.208]
+Normalize(mean=mean, std=std)
+\end{lstlisting}
+      \end{block}
+      \vspace{3pt}
+      \begin{block}{Impact}
+        \small Val : 91.4\% $\to$ \good{93.3\%} (\textbf{+1.9\%})\\
+        Gap : 3.3\% $\to$ \bad{5.3\%}\\
+        \textit{Overfitting aggravé : convergence meilleure,\\
+        mais le modèle généralise moins.}
+      \end{block}
+  \end{columns}
+\end{frame}
+
+% ============================================================
+% 7. Data augmentation
+% ============================================================
+\begin{frame}{7. Data augmentation --- stratégie et impact}
+  \begin{columns}[T,onlytextwidth]
+    \column{0.53\textwidth}
+      \centering
+      \includegraphics[width=\linewidth,height=0.70\textheight,keepaspectratio]{courbes_cnn_aug.png}
+    \column{0.44\textwidth}
+      \begin{block}{Stratégie (train uniquement)}
+        \small
+        \begin{itemize}\setlength\itemsep{4pt}
+          \item \texttt{RandomHorizontalFlip}$(p{=}0.5)$
+          \item \texttt{RandomRotation}$(\pm10°)$
+          \item \texttt{ColorJitter}(brightness, contrast = 0.2)
+        \end{itemize}
+      \end{block}
+      \vspace{3pt}
+      \begin{block}{Impact}
+        \small\renewcommand{\arraystretch}{1.1}
+        \begin{tabular}{lcc}
+          \toprule Config & Val & Gap \\ \midrule
+          Norm. seule  & 93.3\% & \bad{5.3\%} \\
+          + Augment.   & \good{91.5\%} & \good{$\approx 0$\%} \\
+          \bottomrule
+        \end{tabular}\\[3pt]
+        Gap fermé : le modèle \textbf{généralise}.
+      \end{block}
+  \end{columns}
+\end{frame}
+
+% ============================================================
+% 8. Optimiseur et learning rate
+% ============================================================
+\begin{frame}{8. Choix de l'optimiseur et du learning rate}
+  \begin{columns}[T,onlytextwidth]
+    \column{0.53\textwidth}
+      \centering
+      \includegraphics[width=\linewidth,height=0.70\textheight,keepaspectratio]{courbes_optimiseurs.png}
+    \column{0.44\textwidth}
+      \begin{block}{Résultats}
+        \small\renewcommand{\arraystretch}{1.2}
+        \begin{tabular}{lc}
+          \toprule Optimiseur & Acc. val \\ \midrule
+          Adam $10^{-3}$ & 91.3\% \\
+          Adam $10^{-4}$ & \good{91.5\%} \\
+          SGD  $10^{-2}$ & \warn{89.0\%} \\ \bottomrule
+        \end{tabular}
+      \end{block}
+      \vspace{3pt}
+      \begin{block}{Pourquoi Adam ?}
+        \small LR adaptatif par paramètre --- robuste sur images hétérogènes.
+        SGD plus bruité, sensible au réglage du LR.
+      \end{block}
+      \vspace{3pt}
+      \begin{alertblock}{Retenu}
+        \small Adam $10^{-3}$ (compromis vitesse / qualité)
+      \end{alertblock}
+  \end{columns}
+\end{frame}
+
+% ============================================================
+% 9. Scheduler
+% ============================================================
+\begin{frame}{9. Learning Rate Scheduler --- StepLR}
+  \begin{columns}[T,onlytextwidth]
+    \column{0.52\textwidth}
+      \centering
+      \includegraphics[width=0.95\linewidth,height=0.36\textheight,keepaspectratio]{courbes_scheduler.png}\\[3pt]
+      \includegraphics[width=0.95\linewidth,height=0.36\textheight,keepaspectratio]{courbes_lr_schedule.png}
+    \column{0.45\textwidth}
+      \begin{block}{Principe --- step=7, $\gamma=0.1$}
+        \small
+        \begin{tabular}{lc}
+          \toprule Époques & LR \\ \midrule
+          1--7   & $10^{-3}$ \\
+          8--14  & $10^{-4}$ \\
+          15--20 & $10^{-5}$ \\ \bottomrule
+        \end{tabular}
+      \end{block}
+      \vspace{4pt}
+      \begin{block}{Impact}
+        \small Sans scheduler : 91.0\% val\\
+        Avec StepLR : \good{92.0\%}\\[2pt]
+        Convergence plus stable après chaque palier.
+        Le graphe log confirme les 2 sauts.
+      \end{block}
+  \end{columns}
+\end{frame}
+
+% ============================================================
+% 10. TensorBoard
+% ============================================================
+\begin{frame}[fragile]{10. Suivi des expériences --- TensorBoard}
+  \begin{columns}[T,onlytextwidth]
+    \column{0.53\textwidth}
+      \centering
+      \includegraphics[width=\linewidth,height=0.62\textheight,keepaspectratio]{courbes_optimiseurs.png}\\
+      \small\textit{Approche équivalente : matplotlib superposé}
+    \column{0.44\textwidth}
+      \begin{block}{TensorBoard}
+\begin{lstlisting}
+from torch.utils.tensorboard \
+    import SummaryWriter
+w = SummaryWriter("runs/adam_1e3")
+w.add_scalar("Loss/val", loss, ep)
+w.add_scalar("Acc/val",  acc,  ep)
+# tensorboard --logdir runs/
+\end{lstlisting}
+        \small Comparaison interactive dans le navigateur,
+        zoom, histogrammes de poids.
+      \end{block}
+  \end{columns}
+\end{frame}
+
+% ============================================================
+% 11. ResNet — transfer learning, backbone gelé
+% ============================================================
+\begin{frame}[fragile]{11. ResNet18 --- Transfer Learning}
+  \begin{columns}[T,onlytextwidth]
+    \column{0.48\textwidth}
+      \begin{block}{Backbone gelé}
+\begin{lstlisting}
+resnet = models.resnet18(
+    weights=IMAGENET1K_V1)
+for p in resnet.parameters():
+    p.requires_grad = False  # geler tout
+resnet.fc = nn.Linear(512, num_classes)
+# 1 026 params entrainables seulement
+\end{lstlisting}
+        \small Norm. ImageNet : mean=[0.485, 0.456, 0.406]
+      \end{block}
+      \vspace{3pt}
+      \begin{alertblock}{Résultat backbone gelé}
+        \small Acc. val = \warn{88.9\%} --- \textit{inférieur au SimpleCNN !}\\
+        Features ImageNet $\neq$ patterns dermoscopiques.
+      \end{alertblock}
+    \column{0.48\textwidth}
+      \centering
+      \includegraphics[width=\linewidth,height=0.68\textheight,keepaspectratio]{courbes_resnet.png}\\
+      \small\textit{Courbe bleue : backbone gelé}
+  \end{columns}
+\end{frame}
+
+% ============================================================
+% 12. Fine-tuning
+% ============================================================
+\begin{frame}[fragile]{12. Fine-tuning --- dégelage partiel de layer4}
+  \begin{columns}[T,onlytextwidth]
+    \column{0.50\textwidth}
+      \begin{block}{Stratégie}
+\begin{lstlisting}
+for p in resnet.layer4.parameters():
+    p.requires_grad = True   # degeler
+
+optimizer = Adam([
+  {"params": resnet.layer4.parameters(),
+   "lr": 1e-4},  # adaptation douce
+  {"params": resnet.fc.parameters(),
+   "lr": 1e-3},  # apprentissage rapide
+])
+# 8.4M entrainables / 11.2M total
+\end{lstlisting}
+      \end{block}
+      \vspace{3pt}
+      \begin{block}{Gain}
+        \small\renewcommand{\arraystretch}{1.15}
+        \begin{tabular}{lc}
+          \toprule Modèle & Acc. val \\ \midrule
+          Backbone gelé      & \warn{88.9\%} \\
+          SimpleCNN + norm.  & 93.3\% \\
+          Fine-tuning layer4 & \good{\textbf{95.6\%}} \\ \bottomrule
+        \end{tabular}
+      \end{block}
+    \column{0.46\textwidth}
+      \centering
+      \includegraphics[width=\linewidth,height=0.38\textheight,keepaspectratio]{courbes_resnet.png}
+      \vspace{4pt}
+      \begin{alertblock}{Pourquoi layer4 ?}
+        \small Layer4 = features de haut niveau spécifiques au mélanome.
+        Couches basses (bords, contours) = universelles.
+        Évite le \textit{catastrophic forgetting}.
+      \end{alertblock}
+  \end{columns}
+\end{frame}
+
+% ============================================================
+% 13. Analyse des erreurs
+% ============================================================
+\begin{frame}{13. Analyse des erreurs --- Matrice de confusion}
+  \begin{columns}[T,onlytextwidth]
+    \column{0.40\textwidth}
+      \centering
+      \includegraphics[width=\linewidth,height=0.50\textheight,keepaspectratio]{matrice_confusion.png}\\[2pt]
+      \includegraphics[width=\linewidth,height=0.22\textheight,keepaspectratio]{exemples_incorrects.png}\\
+      \tiny\textit{Exemples mal classés}
+    \column{0.56\textwidth}
+      \begin{block}{Rapport de classification (2\,000 images)}
+        \small\renewcommand{\arraystretch}{1.1}
+        \begin{tabular}{lcccc}
+          \toprule Classe & Préc. & Rappel & F1 & N \\ \midrule
+          Bénin & 95\% & 96\% & 96\% & 1\,000 \\
+          Malin & 96\% & 95\% & 96\% & 1\,000 \\ \midrule
+          \multicolumn{2}{l}{\textbf{Accuracy}} &
+            \multicolumn{3}{c}{\good{\textbf{96\% (1\,911 / 2\,000)}}} \\
+          \bottomrule
+        \end{tabular}
+      \end{block}
+      \vspace{3pt}
+      \begin{alertblock}{Enjeux médicaux}
+        \small
+        \begin{itemize}\setlength\itemsep{3pt}
+          \item \bad{53 faux négatifs} : malins classés bénins --- \textbf{risque vital}
+          \item \warn{36 faux positifs} : bénins classés malins --- sur-diagnostic
+        \end{itemize}
+        \vspace{2pt}
+        En clinique : abaisser le seuil de décision
+        pour maximiser le \textbf{rappel Malin}.
+      \end{alertblock}
+  \end{columns}
+\end{frame}
+
+% ============================================================
+% 14. Conclusion
+% ============================================================
+\begin{frame}{14. Conclusion --- Quel modèle retenir ?}
+  \begin{columns}[T,onlytextwidth]
+    \column{0.54\textwidth}
+      \begin{block}{Bilan des expériences}
+        \tiny\renewcommand{\arraystretch}{1.15}
+        \begin{tabular}{clcc}
+          \toprule \textbf{P.} & \textbf{Configuration} & \textbf{Train} & \textbf{Val} \\ \midrule
+          5  & SimpleCNN (sans norm.)  & 94.7\% & 91.4\% \\
+          6  & + Normalisation         & 98.6\% & 93.3\% \\
+          7  & + Augmentation          & 90.3\% & 91.5\% \\
+          8  & + Adam $10^{-4}$        & 89.4\% & 91.5\% \\
+          9  & + StepLR(7, 0.1)        & 90.0\% & 92.0\% \\
+          11 & ResNet backbone gelé    & ---    & \warn{88.9\%} \\
+          12 & ResNet fine-tuning      & $>$99\%& \good{\textbf{95.6\%}} \\ \midrule
+          13 & \textbf{Analyse FT} &
+            \multicolumn{2}{c}{\good{\textbf{96\% --- 89 err. / 2\,000}}} \\
+          \bottomrule
+        \end{tabular}
+      \end{block}
+    \column{0.42\textwidth}
+      \begin{block}{Ce qui a le plus amélioré}
+        \small
+        \begin{enumerate}\setlength\itemsep{4pt}
+          \item \textbf{Fine-tuning} \good{(+4.1\%)}
+          \item \textbf{Normalisation} (+1.9\%)
+          \item \textbf{Scheduler} (stabilité)
+          \item \textbf{Augmentation} (gap $\to$ 0)
+        \end{enumerate}
+      \end{block}
+      \vspace{3pt}
+      \begin{block}{Avec plus de temps\ldots}
+        \small Early stopping, EfficientNet, Focal loss (rappel Malin), Grad-CAM
+      \end{block}
+      \vspace{4pt}
+      \begin{alertblock}{}
+        \centering \large\textbf{Merci} \normalsize --- \textit{Questions ?}
+      \end{alertblock}
+  \end{columns}
+\end{frame}
+
+\end{document}
