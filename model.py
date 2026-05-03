@@ -1,4 +1,5 @@
 import torch.nn as nn
+from torchvision import models
 
 
 class SimpleCNN(nn.Module):
@@ -44,3 +45,21 @@ def compter_parametres(model):
     total = sum(p.numel() for p in model.parameters())
     print(f"Paramètres entraînables : {entrainables:,} / {total:,} au total")
     return entrainables
+
+
+def charger_resnet_gele(num_classes, device):
+    resnet = models.resnet18(weights=models.ResNet18_Weights.IMAGENET1K_V1)
+    for param in resnet.parameters():
+        param.requires_grad = False
+    resnet.fc = nn.Linear(resnet.fc.in_features, num_classes)
+    return resnet.to(device)
+
+
+def charger_resnet_finetune(num_classes, device):
+    resnet = models.resnet18(weights=models.ResNet18_Weights.IMAGENET1K_V1)
+    for param in resnet.parameters():
+        param.requires_grad = False
+    resnet.fc = nn.Linear(resnet.fc.in_features, num_classes)
+    for param in resnet.layer4.parameters():
+        param.requires_grad = True
+    return resnet.to(device)
