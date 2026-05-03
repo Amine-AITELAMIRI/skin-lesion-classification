@@ -95,3 +95,14 @@ for epoch in range(1, NUM_EPOCHS + 1):
     )
 
 tracer_courbes(history, titre="CNN avec data augmentation", save_name="courbes_cnn_aug.png")
+
+# Sauvegarde du modèle + stats pour analyze.py
+torch.save({
+    "model_type":       "simple_cnn",
+    "model_state_dict": model.state_dict(),
+    "num_classes":      num_classes,
+    "classes":          train_dataset_aug.classes,
+    "mean":             MEAN,
+    "std":              STD,
+}, "checkpoint_aug.pth")
+print("Modele sauvegarde -> checkpoint_aug.pth")
