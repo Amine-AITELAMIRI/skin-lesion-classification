@@ -7,3 +7,4 @@ __pycache__/
 melanoma-cancer-dataset/
 archive*.zip
 .DS_Store
+results/test_errors.png

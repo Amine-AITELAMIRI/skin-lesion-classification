@@ -1,6 +1,6 @@
 # Skin lesion classification: CNN vs ResNet18
 
-An academic image-classification project comparing a small convolutional network with transfer learning on a binary **Benign / Malignant** dataset. The main result is a useful lesson in training choices: the fine-tuned ResNet18 did better on the dataset's provided evaluation folder, but its errors include malignant lesions predicted as benign. This is a coursework classifier, **not a clinically validated diagnostic tool**.
+An academic image-classification project comparing a custom CNN with transfer learning on a binary **Benign / Malignant** dataset. The repository documents the original experiments and a later Colab CNN rerun. This is a coursework classifier, **not a clinically validated diagnostic tool**.
 
 ## My contribution
 
@@ -17,7 +17,7 @@ The project uses the [Melanoma Cancer Image Dataset on Kaggle](https://www.kaggl
 | `train/` | 6,289 | 5,590 | 11,879 |
 | `test/` | 1,000 | 1,000 | 2,000 |
 
-The current scripts make a fixed, class-balanced validation split from `train/`: 9,503 images for training and 2,376 for validation (seed 42). They choose checkpoints using validation accuracy, then evaluate `test/` once. The earlier runs used `test/` during development, so their scores are exploratory. Because of that earlier use, the new Colab score on the same folder is not a fresh external validation either.
+The current scripts make a fixed, class-balanced validation split from `train/`: 9,503 images for training and 2,376 for validation (seed 42). They choose checkpoints using validation accuracy, then evaluate `test/` once per run.
 
 ## Models and training
 
@@ -40,7 +40,9 @@ The augmented CNN and both ResNet runs save their best validation epochs. Result
 | ResNet18, frozen backbone (earlier) | 88.9% | [Presentation](presentation/presentation.tex) · [training curve](figures/courbes_resnet.png) |
 | ResNet18, fine-tuned `layer4` + head (earlier) | **95.55% (1,911 / 2,000)** | Recalculated from the [saved confusion matrix](figures/matrice_confusion.png), which agrees with the presentation's rounded 95.6%. |
 
-The Colab run selected epoch 18 by validation accuracy (89.18%). Its test confusion matrix, with actual labels in rows and predictions in columns, is:
+These are separate experiments, not a controlled head-to-head comparison. The **95.55% ResNet18** run used `test/` during development (the original slides call it “validation”). The newer **93.0% CNN** run selected its checkpoint on a train-only validation split but scored on that same `test/` folder. Neither score is independent validation.
+
+The Colab run selected epoch 18. Epochs 12 and 18 tied at 89.18% validation accuracy; epoch 18 had lower validation loss. Its test confusion matrix, with actual labels in rows and predictions in columns, is:
 
 | Actual \ Predicted | Benign | Malignant |
 | --- | ---: | ---: |
@@ -62,9 +64,9 @@ The [saved error montage](figures/exemples_incorrects.png) shows eight benign le
 
 ## Reproduce the experiment
 
-For the custom CNN on a Colab GPU, upload and run [this notebook](notebooks/train_custom_cnn_colab.ipynb).
+For the custom CNN on a Colab GPU, upload and run [this notebook](notebooks/train_custom_cnn_colab.ipynb). The checkpoint and plots from the recorded 93.0% run are stored privately outside the repository.
 
-Use Python with a compatible PyTorch / torchvision installation. The scripts select CUDA when available and otherwise run on CPU. ResNet18 also downloads ImageNet weights on first use.
+Use Python with a compatible PyTorch / torchvision installation. The scripts select CUDA, MPS, or CPU. ResNet18 also downloads ImageNet weights on first use.
 
 ```bash
 python3 -m venv .venv
@@ -75,10 +77,11 @@ python -m pip install -r requirements.txt
 # melanoma-cancer-dataset/train/{Benign,Malignant}/*.jpg
 # melanoma-cancer-dataset/test/{Benign,Malignant}/*.jpg
 python verify_dataset.py
+python -m unittest discover -s tests -v
 
 MPLBACKEND=Agg python train_augmented.py
 MPLBACKEND=Agg python train_resnet.py
 MPLBACKEND=Agg python analyze.py
 ```
 
-Run these from the repository root. `train_augmented.py` saves the custom CNN's best validation checkpoint; `train_resnet.py` does the same for frozen and fine-tuned ResNet18. `analyze.py` selects the highest validation score before evaluating `test/` and writes the new result and figures to `results/`. The other training scripts show the intermediate experiments.
+Run these from the repository root. `train_augmented.py` saves the custom CNN's best validation checkpoint; `train_resnet.py` does the same for frozen and fine-tuned ResNet18. `analyze.py` selects the highest validation score before evaluating `test/` and writes the new result and figures to `results/`. These commands rerun the current protocol; they do not recreate the earlier 95.55% checkpoint, and scores can vary. The other training scripts show the intermediate experiments.
