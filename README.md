@@ -6,7 +6,7 @@ An academic image-classification project comparing a small convolutional network
 
 I built the dataset loader and custom CNN, then added exploration and training scripts, normalization and augmentation experiments, optimizer and learning-rate comparisons, ResNet18 training, error analysis, plots, and the presentation.
 
-This repository contains the project's Python scripts and saved figures. No Jupyter notebooks or model checkpoints are available here.
+This repository contains the project's Python scripts and saved figures.
 
 ## Data and split
 
@@ -17,9 +17,7 @@ The project uses the [Melanoma Cancer Image Dataset on Kaggle](https://www.kaggl
 | `train/` | 6,289 | 5,590 | 11,879 |
 | `test/` | 1,000 | 1,000 | 2,000 |
 
-The code calls the provided `test/` folder **validation** and evaluates on it after every epoch. It was also used to compare configurations. There is no separate untouched test set, so the numbers below are evaluation-folder results, not an independent estimate of clinical or external performance. A byte-level SHA-256 scan found no exact duplicate files across the two folders; it does not rule out related images or patient overlap because patient identifiers were not supplied.
-
-The dataset images and ZIP are excluded from this repo. Download them from Kaggle for a rerun and follow that dataset's terms.
+The code calls the provided `test/` folder **validation** and evaluates on it after every epoch. It was also used to compare configurations. There is no separate untouched test set, so the numbers below are evaluation-folder results, not an independent estimate of clinical or external performance.
 
 ## Models and training
 
@@ -40,8 +38,6 @@ The scripts save the **final epoch** fine-tuned model. There is no seed setting,
 | Custom CNN, train-set normalization | 93.3% | Presentation and [saved curve](figures/courbes_cnn_normalise.png); no checkpoint or log survives. |
 | ResNet18, frozen backbone | 88.9% | Presentation and [saved ResNet curve](figures/courbes_resnet.png); no checkpoint or log survives. |
 | ResNet18, fine-tuned `layer4` + head | **95.55% (1,911 / 2,000)** | Recalculated from the [saved confusion matrix](figures/matrice_confusion.png), which agrees with the presentation's rounded 95.6%. |
-
-These are saved figures from the project. Without saved model weights, I can verify the fine-tuned matrix's arithmetic but cannot independently regenerate the exact predictions or the earlier run metrics. The presentation's later “96%” is a whole-number rounding of 95.55%.
 
 ### Fine-tuned ResNet18 confusion matrix
 
@@ -81,7 +77,6 @@ Run these from the repository root. The first three scripts are successive CNN e
 
 ## Limits
 
-- The evaluation folder was viewed repeatedly during development. A fresh patient-grouped holdout and external data are needed to estimate generalization.
-- The dataset folders contain images and labels but no patient or acquisition metadata in this repo. Exact-file duplicate checks cannot establish patient independence, demographic coverage, or behavior across cameras and skin tones.
-- One run per configuration is shown, with no fixed seed or uncertainty interval. Accuracy on this near-balanced dataset also hides the different costs of false negatives and false positives.
-- The model was not prospectively tested, calibrated for clinical use, or reviewed as a medical device. Do not use it to diagnose lesions or make care decisions.
+- The `test/` folder was used during development, so these scores are not from a fresh, independent test set.
+- Results may differ on images from other people, cameras, or clinics.
+- This is a coursework model. It should not be used for diagnosis.
