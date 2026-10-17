@@ -85,3 +85,5 @@ MPLBACKEND=Agg python analyze.py
 ```
 
 Run these from the repository root. `train_augmented.py` saves the custom CNN's best validation checkpoint; `train_resnet.py` does the same for frozen and fine-tuned ResNet18. `analyze.py` selects the highest validation score before evaluating `test/` and writes the new result and figures to `results/`. These commands rerun the current protocol; they do not recreate the earlier 95.55% checkpoint, and scores can vary. The other training scripts show the intermediate experiments.
+
+The commands were smoke-tested on a small image subset with Python 3.14.7, PyTorch 2.14.1, and torchvision 0.29.1 on Apple MPS.
