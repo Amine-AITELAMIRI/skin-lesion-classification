@@ -54,6 +54,8 @@ The [saved error montage](figures/exemples_incorrects.png) shows eight benign le
 
 ## Reproduce the experiment
 
+For the custom CNN on a Colab GPU, upload and run [this notebook](notebooks/train_custom_cnn_colab.ipynb).
+
 Use Python with a compatible PyTorch / torchvision installation. The scripts select CUDA when available and otherwise run on CPU. ResNet18 also downloads ImageNet weights on first use.
 
 ```bash
