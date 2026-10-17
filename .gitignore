@@ -1,7 +1,9 @@
 __pycache__/
+.venv/
 *.pyc
 *.pth
 *.log
+/*.png
 melanoma-cancer-dataset/
 archive*.zip
 .DS_Store

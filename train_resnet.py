@@ -117,7 +117,7 @@ plt.savefig("courbes_resnet.png")
 plt.show()
 print("Courbes sauvegardees -> courbes_resnet.png")
 
-# ── 5. Sauvegarde du meilleur modèle (fine-tuned) ─────────────
+# ── 5. Sauvegarde du modèle de la dernière époque (fine-tuned) ─
 torch.save({
     "model_type":       "resnet18_finetune",
     "model_state_dict": resnet_ft.state_dict(),
