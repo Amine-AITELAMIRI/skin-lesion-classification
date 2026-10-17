@@ -13,5 +13,7 @@
   "confusion_matrix": [[934, 66], [74, 926]],
   "note": "Rows are actual labels; columns are predicted labels. Test evaluated once after checkpoint selection.",
   "source_notebook": "https://colab.research.google.com/drive/1Yi0cjVPYtMDQ2R8Xdp9n8bBYoCQO39S1",
-  "recorded_from": "Completed Colab notebook output on 2026-10-17"
+  "recorded_from": "Completed Colab notebook output on 2026-10-17",
+  "drive_artifact_folder": "MyDrive/skin-lesion-classification/colab-cnn-2026-10-17",
+  "checkpoint_sha256": "076c37dc1b05ca5542cce8423cc5c7c38bbcffff15cbdd8c66bc8e616aba90b7"
 }
