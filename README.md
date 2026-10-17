@@ -17,7 +17,7 @@ The project uses the [Melanoma Cancer Image Dataset on Kaggle](https://www.kaggl
 | `train/` | 6,289 | 5,590 | 11,879 |
 | `test/` | 1,000 | 1,000 | 2,000 |
 
-The current scripts make a fixed, class-balanced validation split from `train/`: 9,503 images for training and 2,376 for validation (seed 42). They choose checkpoints using validation accuracy, then evaluate `test/` once. The saved results below came from earlier runs that used `test/` during development, so they are exploratory scores. That earlier use also means a new score on this folder is not a fresh external validation.
+The current scripts make a fixed, class-balanced validation split from `train/`: 9,503 images for training and 2,376 for validation (seed 42). They choose checkpoints using validation accuracy, then evaluate `test/` once. The earlier runs used `test/` during development, so their scores are exploratory. Because of that earlier use, the new Colab score on the same folder is not a fresh external validation either.
 
 ## Models and training
 
