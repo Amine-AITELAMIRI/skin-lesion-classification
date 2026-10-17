@@ -1,0 +1,17 @@
+{
+  "model": "SimpleCNN with augmentation",
+  "classes": ["Benign", "Malignant"],
+  "train_images": 9503,
+  "val_images": 2376,
+  "test_images": 2000,
+  "split_seed": 42,
+  "best_epoch": 18,
+  "best_val_accuracy": 0.8918350168350169,
+  "test_accuracy": 0.93,
+  "test_correct": 1860,
+  "test_loss": 0.22571016204357147,
+  "confusion_matrix": [[934, 66], [74, 926]],
+  "note": "Rows are actual labels; columns are predicted labels. Test evaluated once after checkpoint selection.",
+  "source_notebook": "https://colab.research.google.com/drive/1Yi0cjVPYtMDQ2R8Xdp9n8bBYoCQO39S1",
+  "recorded_from": "Completed Colab notebook output on 2026-10-17"
+}

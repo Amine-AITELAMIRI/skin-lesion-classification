@@ -30,14 +30,22 @@ The current scripts make a fixed, class-balanced validation split from `train/`:
 
 The augmented CNN and both ResNet runs save their best validation epochs. Results may still vary across runs and hardware.
 
-## Saved results from the earlier runs
+## Results
 
-| Run | Earlier evaluation accuracy | Evidence |
+| Run | Test-folder accuracy | Evidence |
 | --- | ---: | --- |
-| Custom CNN, no normalization | 91.4% | [Presentation](presentation/presentation.tex) · [training curve](figures/courbes_cnn_simple.png) |
-| Custom CNN, train-set normalization | 93.3% | [Presentation](presentation/presentation.tex) · [training curve](figures/courbes_cnn_normalise.png) |
-| ResNet18, frozen backbone | 88.9% | [Presentation](presentation/presentation.tex) · [training curve](figures/courbes_resnet.png) |
-| ResNet18, fine-tuned `layer4` + head | **95.55% (1,911 / 2,000)** | Recalculated from the [saved confusion matrix](figures/matrice_confusion.png), which agrees with the presentation's rounded 95.6%. |
+| Custom CNN + augmentation, Colab rerun | **93.0% (1,860 / 2,000)** | [Run result](results/colab_custom_cnn_2026-10-17.json) · [notebook](notebooks/train_custom_cnn_colab.ipynb) |
+| Custom CNN, no normalization (earlier) | 91.4% | [Presentation](presentation/presentation.tex) · [training curve](figures/courbes_cnn_simple.png) |
+| Custom CNN, train-set normalization (earlier) | 93.3% | [Presentation](presentation/presentation.tex) · [training curve](figures/courbes_cnn_normalise.png) |
+| ResNet18, frozen backbone (earlier) | 88.9% | [Presentation](presentation/presentation.tex) · [training curve](figures/courbes_resnet.png) |
+| ResNet18, fine-tuned `layer4` + head (earlier) | **95.55% (1,911 / 2,000)** | Recalculated from the [saved confusion matrix](figures/matrice_confusion.png), which agrees with the presentation's rounded 95.6%. |
+
+The Colab run selected epoch 18 by validation accuracy (89.18%). Its test confusion matrix, with actual labels in rows and predictions in columns, is:
+
+| Actual \ Predicted | Benign | Malignant |
+| --- | ---: | ---: |
+| Benign | 934 | 66 |
+| Malignant | **74** | 926 |
 
 ### Earlier fine-tuned ResNet18 confusion matrix
 
