@@ -8,24 +8,22 @@ import torch.nn as nn
 import torch.optim as optim
 from torch.utils.data import DataLoader
 
-from dataset import MelonaDataset
 from transforms import transform_base
 from model import SimpleCNN, compter_parametres
 from train import train_one_epoch, evaluate, tracer_courbes
+from split_data import make_train_val, class_names, get_device, set_seed
 
-device = torch.device("cuda" if torch.cuda.is_available() else "cpu")
+set_seed()
+device = get_device()
 print("Device :", device)
 
 TRAIN_DIR = "melanoma-cancer-dataset/train"
-VAL_DIR   = "melanoma-cancer-dataset/test"
-
-train_dataset = MelonaDataset(TRAIN_DIR, transform=transform_base)
-val_dataset   = MelonaDataset(VAL_DIR,   transform=transform_base)
+train_dataset, val_dataset = make_train_val(TRAIN_DIR, transform_base, transform_base)
 
 train_loader = DataLoader(train_dataset, batch_size=32, shuffle=True,  num_workers=0)
 val_loader   = DataLoader(val_dataset,   batch_size=32, shuffle=False, num_workers=0)
 
-num_classes = len(train_dataset.classes)
+num_classes = len(class_names(train_dataset))
 model = SimpleCNN(num_classes=num_classes).to(device)
 compter_parametres(model)
 

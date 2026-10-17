@@ -17,7 +17,7 @@ The project uses the [Melanoma Cancer Image Dataset on Kaggle](https://www.kaggl
 | `train/` | 6,289 | 5,590 | 11,879 |
 | `test/` | 1,000 | 1,000 | 2,000 |
 
-The code calls the provided `test/` folder **validation** and evaluates on it after every epoch. It was also used to compare configurations. There is no separate untouched test set, so the numbers below are evaluation-folder results, not an independent estimate of clinical or external performance.
+The current scripts make a fixed, class-balanced validation split from `train/`: 9,503 images for training and 2,376 for validation (seed 42). They choose checkpoints using validation accuracy, then evaluate `test/` once. The saved results below came from earlier runs that used `test/` during development, so they are exploratory scores. That earlier use also means a new score on this folder is not a fresh external validation.
 
 ## Models and training
 
@@ -28,18 +28,18 @@ The code calls the provided `test/` folder **validation** and evaluates on it af
 | ResNet18, frozen | ImageNet V1 weights; backbone frozen and a new two-class head trained with Adam `1e-3`. |
 | ResNet18, fine-tuned | ImageNet V1 weights; `layer4` and the head trained with Adam at `1e-4` and `1e-3` respectively for 20 epochs. ImageNet normalization; no augmentation in this run. |
 
-The scripts save the **final epoch** fine-tuned model. There is no seed setting, checkpoint selection procedure, repeated-run average, or recorded package versions. A rerun may differ.
+The augmented CNN and both ResNet runs save their best validation epochs. Results may still vary across runs and hardware.
 
-## Results in the saved project artifacts
+## Saved results from the earlier runs
 
-| Run | Evaluation-folder accuracy | Evidence |
+| Run | Earlier evaluation accuracy | Evidence |
 | --- | ---: | --- |
 | Custom CNN, no normalization | 91.4% | [Presentation](presentation/presentation.tex) · [training curve](figures/courbes_cnn_simple.png) |
 | Custom CNN, train-set normalization | 93.3% | [Presentation](presentation/presentation.tex) · [training curve](figures/courbes_cnn_normalise.png) |
 | ResNet18, frozen backbone | 88.9% | [Presentation](presentation/presentation.tex) · [training curve](figures/courbes_resnet.png) |
 | ResNet18, fine-tuned `layer4` + head | **95.55% (1,911 / 2,000)** | Recalculated from the [saved confusion matrix](figures/matrice_confusion.png), which agrees with the presentation's rounded 95.6%. |
 
-### Fine-tuned ResNet18 confusion matrix
+### Earlier fine-tuned ResNet18 confusion matrix
 
 Rows are the dataset label; columns are the model prediction. These four counts are visible in the saved matrix and sum to 2,000.
 
@@ -66,11 +66,9 @@ python -m pip install -r requirements.txt
 # melanoma-cancer-dataset/test/{Benign,Malignant}/*.jpg
 python verify_dataset.py
 
-MPLBACKEND=Agg python train_simple.py
-MPLBACKEND=Agg python train_normalized.py
 MPLBACKEND=Agg python train_augmented.py
 MPLBACKEND=Agg python train_resnet.py
 MPLBACKEND=Agg python analyze.py
 ```
 
-Run these from the repository root. The first three scripts are successive CNN experiments; `train_resnet.py` runs both the frozen and fine-tuned variants. `analyze.py` loads `checkpoint_resnet_ft.pth` if present, otherwise `checkpoint_aug.pth`, so check its printed model type before interpreting its output. The scripts write plots and checkpoints in the working directory; checkpoint files are ignored by Git.
+Run these from the repository root. `train_augmented.py` saves the custom CNN's best validation checkpoint; `train_resnet.py` does the same for frozen and fine-tuned ResNet18. `analyze.py` selects the highest validation score before evaluating `test/` and writes the new result and figures to `results/`. The other training scripts show the intermediate experiments.

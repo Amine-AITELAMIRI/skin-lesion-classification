@@ -11,28 +11,27 @@ import torchvision.transforms as transforms
 import matplotlib.pyplot as plt
 from torch.utils.data import DataLoader
 
-from dataset import MelonaDataset
 from transforms import transform_base, build_transform_normalise
 from model import SimpleCNN, compter_parametres
 from train import train_one_epoch, evaluate, tracer_courbes, calculer_mean_std
+from split_data import make_train_val, class_names, get_device, set_seed
 
-device = torch.device("cuda" if torch.cuda.is_available() else "cpu")
+set_seed()
+device = get_device()
 print("Device :", device)
 
 TRAIN_DIR = "melanoma-cancer-dataset/train"
-VAL_DIR   = "melanoma-cancer-dataset/test"
-
 # ── 1. Calculer MEAN / STD sur le train uniquement ────────────
-dataset_stats = MelonaDataset(TRAIN_DIR, transform=transforms.ToTensor())
+dataset_stats, _ = make_train_val(TRAIN_DIR, transforms.ToTensor(), transforms.ToTensor())
 MEAN, STD = calculer_mean_std(dataset_stats)
 
 # ── 2. Pipelines ──────────────────────────────────────────────
 transform_normalise = build_transform_normalise(MEAN, STD)
 
-train_dataset      = MelonaDataset(TRAIN_DIR, transform=transform_base)
-val_dataset        = MelonaDataset(VAL_DIR,   transform=transform_base)
-train_dataset_norm = MelonaDataset(TRAIN_DIR, transform=transform_normalise)
-val_dataset_norm   = MelonaDataset(VAL_DIR,   transform=transform_normalise)
+train_dataset, val_dataset = make_train_val(TRAIN_DIR, transform_base, transform_base)
+train_dataset_norm, val_dataset_norm = make_train_val(
+    TRAIN_DIR, transform_normalise, transform_normalise
+)
 
 train_loader_norm = DataLoader(train_dataset_norm, batch_size=32, shuffle=True,  num_workers=0)
 val_loader_norm   = DataLoader(val_dataset_norm,   batch_size=32, shuffle=False, num_workers=0)
@@ -54,7 +53,7 @@ plt.tight_layout()
 plt.show()
 
 # ── 4. Modèle ─────────────────────────────────────────────────
-num_classes = len(train_dataset.classes)
+num_classes = len(class_names(train_dataset))
 model = SimpleCNN(num_classes=num_classes).to(device)
 compter_parametres(model)
 

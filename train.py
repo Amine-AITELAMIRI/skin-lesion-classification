@@ -1,4 +1,5 @@
 import torch
+import torch.nn as nn
 import matplotlib.pyplot as plt
 from torch.utils.data import DataLoader
 
@@ -26,9 +27,13 @@ def calculer_mean_std(dataset):
     return mean.tolist(), std.tolist()
 
 
-def train_one_epoch(model, loader, criterion, optimizer, device):
+def train_one_epoch(model, loader, criterion, optimizer, device, freeze_batchnorm=False):
     """Effectue une epoch d'entraînement. Retourne (loss_moyenne, accuracy)."""
     model.train()
+    if freeze_batchnorm:
+        for module in model.modules():
+            if isinstance(module, nn.BatchNorm2d):
+                module.eval()
     total_loss, total_correct, total_samples = 0.0, 0, 0
 
     for images, labels in loader:

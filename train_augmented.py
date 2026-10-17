@@ -13,19 +13,18 @@ import matplotlib.pyplot as plt
 from PIL import Image
 from torch.utils.data import DataLoader
 
-from dataset import MelonaDataset
 from transforms import build_train_transform_aug, build_val_transform
 from model import SimpleCNN, compter_parametres
 from train import train_one_epoch, evaluate, tracer_courbes, calculer_mean_std
+from split_data import make_train_val, class_names, get_device, set_seed, SPLIT_SEED, VAL_FRACTION
 
-device = torch.device("cuda" if torch.cuda.is_available() else "cpu")
+set_seed()
+device = get_device()
 print("Device :", device)
 
 TRAIN_DIR = "melanoma-cancer-dataset/train"
-VAL_DIR   = "melanoma-cancer-dataset/test"
-
 # ── 1. Calculer MEAN / STD ────────────────────────────────────
-dataset_stats = MelonaDataset(TRAIN_DIR, transform=transforms.ToTensor())
+dataset_stats, _ = make_train_val(TRAIN_DIR, transforms.ToTensor(), transforms.ToTensor())
 MEAN, STD = calculer_mean_std(dataset_stats)
 
 # ── 2. Pipelines avec augmentation ────────────────────────────
@@ -33,10 +32,7 @@ train_transform_aug = build_train_transform_aug(MEAN, STD)
 val_transform       = build_val_transform(MEAN, STD)
 
 # ── 3. Visualiser l'effet de l'augmentation ───────────────────
-chemin_image = os.path.join(
-    TRAIN_DIR, "Benign",
-    os.listdir(os.path.join(TRAIN_DIR, "Benign"))[0]
-)
+chemin_image = dataset_stats.dataset.samples[dataset_stats.indices[0]][0]
 img_pil = Image.open(chemin_image).convert("RGB")
 
 fig, axes = plt.subplots(2, 4, figsize=(12, 6))
@@ -55,8 +51,9 @@ plt.tight_layout()
 plt.show()
 
 # ── 4. Datasets / DataLoaders ─────────────────────────────────
-train_dataset_aug = MelonaDataset(TRAIN_DIR, transform=train_transform_aug)
-val_dataset_aug   = MelonaDataset(VAL_DIR,   transform=val_transform)
+train_dataset_aug, val_dataset_aug = make_train_val(
+    TRAIN_DIR, train_transform_aug, val_transform
+)
 
 train_loader_aug = DataLoader(train_dataset_aug, batch_size=32, shuffle=True,  num_workers=0)
 val_loader_aug   = DataLoader(val_dataset_aug,   batch_size=32, shuffle=False, num_workers=0)
@@ -65,7 +62,7 @@ print(f"Taille train : {len(train_dataset_aug)}")
 print(f"Taille val   : {len(val_dataset_aug)}")
 
 # ── 5. Modèle ─────────────────────────────────────────────────
-num_classes = len(train_dataset_aug.classes)
+num_classes = len(class_names(train_dataset_aug))
 model = SimpleCNN(num_classes=num_classes).to(device)
 compter_parametres(model)
 
@@ -73,8 +70,9 @@ criterion = nn.CrossEntropyLoss()
 optimizer = optim.Adam(model.parameters(), lr=1e-3)
 
 # ── 6. Entraînement ───────────────────────────────────────────
-NUM_EPOCHS = 20
+NUM_EPOCHS = int(os.environ.get("NUM_EPOCHS", "20"))
 history = {"train_loss": [], "val_loss": [], "train_acc": [], "val_acc": []}
+best_val_acc, best_val_loss, best_epoch = -1.0, float("inf"), 0
 
 for epoch in range(1, NUM_EPOCHS + 1):
     t0 = time.time()
@@ -87,6 +85,24 @@ for epoch in range(1, NUM_EPOCHS + 1):
     history["train_acc"].append(train_acc)
     history["val_acc"].append(val_acc)
 
+    if val_acc > best_val_acc or (val_acc == best_val_acc and val_loss < best_val_loss):
+        best_val_acc, best_val_loss, best_epoch = val_acc, val_loss, epoch
+        torch.save({
+            "model_type": "simple_cnn",
+            "model_state_dict": model.state_dict(),
+            "num_classes": num_classes,
+            "classes": class_names(train_dataset_aug),
+            "mean": MEAN,
+            "std": STD,
+            "best_val_acc": best_val_acc,
+            "best_val_loss": best_val_loss,
+            "best_epoch": epoch,
+            "split_seed": SPLIT_SEED,
+            "val_fraction": VAL_FRACTION,
+            "train_images": len(train_dataset_aug),
+            "val_images": len(val_dataset_aug),
+        }, "checkpoint_aug.pth")
+
     print(
         f"Epoch {epoch:2d}/{NUM_EPOCHS} | "
         f"Loss train {train_loss:.4f} | Loss val {val_loss:.4f} | "
@@ -96,13 +112,4 @@ for epoch in range(1, NUM_EPOCHS + 1):
 
 tracer_courbes(history, titre="CNN avec data augmentation", save_name="courbes_cnn_aug.png")
 
-# Sauvegarde du modèle + stats pour analyze.py
-torch.save({
-    "model_type":       "simple_cnn",
-    "model_state_dict": model.state_dict(),
-    "num_classes":      num_classes,
-    "classes":          train_dataset_aug.classes,
-    "mean":             MEAN,
-    "std":              STD,
-}, "checkpoint_aug.pth")
-print("Modele sauvegarde -> checkpoint_aug.pth")
+print(f"Meilleur checkpoint validation : checkpoint_aug.pth (epoch {best_epoch}, accuracy {best_val_acc:.4f})")

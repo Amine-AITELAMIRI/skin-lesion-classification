@@ -47,16 +47,18 @@ def compter_parametres(model):
     return entrainables
 
 
-def charger_resnet_gele(num_classes, device):
-    resnet = models.resnet18(weights=models.ResNet18_Weights.IMAGENET1K_V1)
+def charger_resnet_gele(num_classes, device, pretrained=True):
+    weights = models.ResNet18_Weights.IMAGENET1K_V1 if pretrained else None
+    resnet = models.resnet18(weights=weights)
     for param in resnet.parameters():
         param.requires_grad = False
     resnet.fc = nn.Linear(resnet.fc.in_features, num_classes)
     return resnet.to(device)
 
 
-def charger_resnet_finetune(num_classes, device):
-    resnet = models.resnet18(weights=models.ResNet18_Weights.IMAGENET1K_V1)
+def charger_resnet_finetune(num_classes, device, pretrained=True):
+    weights = models.ResNet18_Weights.IMAGENET1K_V1 if pretrained else None
+    resnet = models.resnet18(weights=weights)
     for param in resnet.parameters():
         param.requires_grad = False
     resnet.fc = nn.Linear(resnet.fc.in_features, num_classes)

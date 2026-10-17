@@ -11,32 +11,31 @@ import torchvision.transforms as transforms
 import matplotlib.pyplot as plt
 from torch.utils.data import DataLoader
 
-from dataset import MelonaDataset
 from transforms import build_train_transform_aug, build_val_transform
 from model import SimpleCNN, compter_parametres
 from train import train_one_epoch, evaluate, calculer_mean_std
+from split_data import make_train_val, class_names, get_device, set_seed
 
-device = torch.device("cuda" if torch.cuda.is_available() else "cpu")
+set_seed()
+device = get_device()
 print("Device :", device)
 
 TRAIN_DIR = "melanoma-cancer-dataset/train"
-VAL_DIR   = "melanoma-cancer-dataset/test"
 NUM_EPOCHS = 20
 
 # ── 1. Statistiques + pipelines ───────────────────────────────
-dataset_stats = MelonaDataset(TRAIN_DIR, transform=transforms.ToTensor())
+dataset_stats, _ = make_train_val(TRAIN_DIR, transforms.ToTensor(), transforms.ToTensor())
 MEAN, STD = calculer_mean_std(dataset_stats)
 
 train_transform = build_train_transform_aug(MEAN, STD)
 val_transform   = build_val_transform(MEAN, STD)
 
-train_dataset = MelonaDataset(TRAIN_DIR, transform=train_transform)
-val_dataset   = MelonaDataset(VAL_DIR,   transform=val_transform)
+train_dataset, val_dataset = make_train_val(TRAIN_DIR, train_transform, val_transform)
 
 train_loader = DataLoader(train_dataset, batch_size=32, shuffle=True,  num_workers=0)
 val_loader   = DataLoader(val_dataset,   batch_size=32, shuffle=False, num_workers=0)
 
-num_classes = len(train_dataset.classes)
+num_classes = len(class_names(train_dataset))
 criterion   = nn.CrossEntropyLoss()
 
 

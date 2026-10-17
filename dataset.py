@@ -8,14 +8,17 @@ class MelonaDataset(Dataset):
         self.transform = transform
         self.samples = []
 
-        self.classes = sorted(os.listdir(data_dir))
+        self.classes = sorted(
+            name for name in os.listdir(data_dir)
+            if os.path.isdir(os.path.join(data_dir, name))
+        )
         self.class_to_idx = {c: i for i, c in enumerate(self.classes)}
 
         for classe in self.classes:
             label = self.class_to_idx[classe]
             dossier = os.path.join(data_dir, classe)
 
-            for nom_fichier in os.listdir(dossier):
+            for nom_fichier in sorted(os.listdir(dossier)):
                 if nom_fichier.lower().endswith(".jpg"):
                     chemin = os.path.join(dossier, nom_fichier)
                     self.samples.append((chemin, label))

@@ -1,157 +1,163 @@
-"""
-analyze.py — Partie 13 : analyse des erreurs du modèle.
-Charge checkpoint_resnet_ft.pth (ou checkpoint_aug.pth en fallback).
-Affiche matrice de confusion, rapport de classification, exemples corrects/incorrects.
-"""
+"""Choose by validation accuracy, then evaluate the provided test folder once."""
 
-import sys
-import torch
-import torch.nn as nn
-import torchvision.transforms as transforms
+import json
+from pathlib import Path
+
 import matplotlib.pyplot as plt
 import numpy as np
+import torch
+from sklearn.metrics import classification_report, confusion_matrix
 from torch.utils.data import DataLoader
-from sklearn.metrics import confusion_matrix, classification_report
+from torchvision.transforms import ToTensor
 
 from dataset import MelonaDataset
-from model import SimpleCNN, charger_resnet_finetune
+from model import SimpleCNN, charger_resnet_gele, charger_resnet_finetune
+from split_data import get_device
 from transforms import build_val_transform
 
-device = torch.device("cuda" if torch.cuda.is_available() else "cpu")
-print("Device :", device)
 
-VAL_DIR = "melanoma-cancer-dataset/test"
-
-# ── 1. Charger le checkpoint ───────────────────────────────────
-for chemin in ["checkpoint_resnet_ft.pth", "checkpoint_aug.pth"]:
-    try:
-        ckpt = torch.load(chemin, map_location=device)
-        print(f"Checkpoint chargé : {chemin}")
-        break
-    except FileNotFoundError:
-        print(f"Fichier introuvable : {chemin}")
-else:
-    print("Aucun checkpoint disponible. Exécutez d'abord train_resnet.py ou train_augmented.py.")
-    sys.exit(1)
-
-num_classes = ckpt["num_classes"]
-classes     = ckpt["classes"]
-MEAN        = ckpt["mean"]
-STD         = ckpt["std"]
-model_type  = ckpt["model_type"]
-
-# ── 2. Reconstruire le modèle ──────────────────────────────────
-if model_type == "resnet18_finetune":
-    model = charger_resnet_finetune(num_classes, device)
-else:
-    model = SimpleCNN(num_classes=num_classes).to(device)
-
-model.load_state_dict(ckpt["model_state_dict"])
-model.eval()
-print(f"Modèle : {model_type}")
-
-# ── 3. Dataset de validation ───────────────────────────────────
-val_transform = build_val_transform(MEAN, STD)
-val_dataset   = MelonaDataset(VAL_DIR, transform=val_transform)
-val_loader    = DataLoader(val_dataset, batch_size=32, shuffle=False, num_workers=0)
-
-print(f"Taille val : {len(val_dataset)}")
-
-# ── 4. Inférence complète ──────────────────────────────────────
-all_preds  = []
-all_labels = []
-all_probs  = []
-
-with torch.no_grad():
-    for images, labels in val_loader:
-        images = images.to(device)
-        outputs = model(images)
-        probs   = torch.softmax(outputs, dim=1)
-        preds   = outputs.argmax(dim=1)
-
-        all_preds.extend(preds.cpu().numpy())
-        all_labels.extend(labels.numpy())
-        all_probs.extend(probs.cpu().numpy())
-
-all_preds  = np.array(all_preds)
-all_labels = np.array(all_labels)
-all_probs  = np.array(all_probs)
-
-# ── 5. Matrice de confusion ────────────────────────────────────
-cm = confusion_matrix(all_labels, all_preds)
-print("\nMatrice de confusion :")
-print(cm)
-
-fig, ax = plt.subplots(figsize=(6, 5))
-im = ax.imshow(cm, interpolation="nearest", cmap="Blues")
-plt.colorbar(im, ax=ax)
-
-ax.set_xticks(range(num_classes))
-ax.set_yticks(range(num_classes))
-ax.set_xticklabels(classes, rotation=45, ha="right")
-ax.set_yticklabels(classes)
-ax.set_xlabel("Prédiction")
-ax.set_ylabel("Vérité terrain")
-ax.set_title(f"Matrice de confusion — {model_type}")
-
-thresh = cm.max() / 2
-for i in range(num_classes):
-    for j in range(num_classes):
-        color = "white" if cm[i, j] > thresh else "black"
-        ax.text(j, i, str(cm[i, j]), ha="center", va="center", color=color, fontsize=14)
-
-plt.tight_layout()
-plt.savefig("matrice_confusion.png")
-plt.show()
-print("Matrice sauvegardee -> matrice_confusion.png")
-
-# ── 6. Rapport de classification ───────────────────────────────
-print("\nRapport de classification :")
-print(classification_report(all_labels, all_preds, target_names=classes))
-
-# ── 7. Exemples corrects et incorrects ────────────────────────
-val_no_transform = MelonaDataset(VAL_DIR, transform=transforms.ToTensor())
+TEST_DIR = "melanoma-cancer-dataset/test"
+CHECKPOINTS = [
+    Path("checkpoint_aug.pth"),
+    Path("checkpoint_resnet_frozen.pth"),
+    Path("checkpoint_resnet_ft.pth"),
+]
+OUTPUT_DIR = Path("results")
+RESULT_FILE = OUTPUT_DIR / "test_result.json"
 
 
-def afficher_exemples(indices, titre, couleur):
-    indices = indices[:8]
-    n = len(indices)
-    if n == 0:
-        print(f"Aucun exemple à afficher pour : {titre}")
+def choose_checkpoint():
+    candidates = []
+    for path in CHECKPOINTS:
+        if not path.exists():
+            raise SystemExit(f"Missing {path}; train the CNN and both ResNet variants first")
+        checkpoint = torch.load(path, map_location="cpu", weights_only=True)
+        if "best_val_acc" not in checkpoint:
+            raise SystemExit(f"{path} has no validation score; retrain with the current scripts")
+        candidates.append((path, checkpoint))
+
+    split_details = {
+        (ckpt["split_seed"], ckpt["val_fraction"], ckpt["train_images"],
+         ckpt["val_images"], tuple(ckpt["classes"]))
+        for _, ckpt in candidates
+    }
+    if len(split_details) != 1:
+        raise SystemExit("Checkpoints use different validation splits or datasets")
+
+    selected = max(
+        candidates,
+        key=lambda pair: (pair[1]["best_val_acc"], -pair[1]["best_val_loss"]),
+    )
+    for path, checkpoint in candidates:
+        print(f"Validation {path}: {checkpoint['best_val_acc']:.4f} (epoch {checkpoint['best_epoch']})")
+    print(f"Selected before test evaluation: {selected[0]}")
+    return selected
+
+
+def load_model(checkpoint, device):
+    n_classes = checkpoint["num_classes"]
+    model_type = checkpoint["model_type"]
+    if model_type == "simple_cnn":
+        model = SimpleCNN(n_classes).to(device)
+    elif model_type == "resnet18_frozen":
+        model = charger_resnet_gele(n_classes, device, pretrained=False)
+    elif model_type == "resnet18_finetune":
+        model = charger_resnet_finetune(n_classes, device, pretrained=False)
+    else:
+        raise ValueError(f"Unknown model type: {model_type}")
+    model.load_state_dict(checkpoint["model_state_dict"])
+    model.eval()
+    return model
+
+
+def save_confusion_matrix(matrix, classes):
+    fig, ax = plt.subplots(figsize=(6, 5))
+    image = ax.imshow(matrix, cmap="Blues")
+    fig.colorbar(image, ax=ax)
+    ax.set_xticks(range(len(classes)), classes)
+    ax.set_yticks(range(len(classes)), classes)
+    ax.set_xlabel("Predicted")
+    ax.set_ylabel("Actual")
+    for row in range(len(classes)):
+        for col in range(len(classes)):
+            ax.text(col, row, str(matrix[row, col]), ha="center", va="center",
+                    color="white" if matrix[row, col] > matrix.max() / 2 else "black")
+    fig.tight_layout()
+    fig.savefig(OUTPUT_DIR / "test_confusion_matrix.png", dpi=150)
+    plt.close(fig)
+
+
+def save_error_examples(labels, predictions, classes):
+    benign = classes.index("Benign")
+    malignant = classes.index("Malignant")
+    false_negatives = np.where((labels == malignant) & (predictions == benign))[0][:4]
+    false_positives = np.where((labels == benign) & (predictions == malignant))[0][:4]
+    indices = list(false_negatives) + list(false_positives)
+    if not indices:
         return
-
-    fig, axes = plt.subplots(1, n, figsize=(2.5 * n, 3))
-    if n == 1:
-        axes = [axes]
-
-    for ax, idx in zip(axes, indices):
-        img_tensor, true_label = val_no_transform[idx]
-        img_display = img_tensor.permute(1, 2, 0).numpy()
-
-        pred_label = all_preds[idx]
-        conf       = all_probs[idx][pred_label]
-
-        ax.imshow(img_display)
-        ax.set_title(
-            f"Réel: {classes[true_label]}\nPréd: {classes[pred_label]} ({conf:.2f})",
-            color=couleur,
-            fontsize=8,
-        )
+    plain_dataset = MelonaDataset(TEST_DIR, transform=ToTensor())
+    fig, axes = plt.subplots(1, len(indices), figsize=(2.3 * len(indices), 3))
+    axes = np.atleast_1d(axes)
+    for ax, index in zip(axes, indices):
+        tensor, _ = plain_dataset[index]
+        ax.imshow(tensor.permute(1, 2, 0))
+        ax.set_title(f"Actual: {classes[labels[index]]}\nPred: {classes[predictions[index]]}", fontsize=8)
         ax.axis("off")
-
-    plt.suptitle(titre)
-    plt.tight_layout()
-    save_name = f"exemples_{'corrects' if couleur == 'green' else 'incorrects'}.png"
-    plt.savefig(save_name)
-    plt.show()
-    print(f"Exemples sauvegardes -> {save_name}")
+    fig.tight_layout()
+    fig.savefig(OUTPUT_DIR / "test_errors.png", dpi=150)
+    plt.close(fig)
 
 
-corrects   = np.where(all_preds == all_labels)[0]
-incorrects = np.where(all_preds != all_labels)[0]
+def main():
+    if RESULT_FILE.exists():
+        raise SystemExit(f"{RESULT_FILE} already exists; test evaluation was already recorded")
+    checkpoint_path, checkpoint = choose_checkpoint()
+    device = get_device()
+    model = load_model(checkpoint, device)
+    classes = checkpoint["classes"]
+    test_transform = build_val_transform(checkpoint["mean"], checkpoint["std"])
+    test_dataset = MelonaDataset(TEST_DIR, transform=test_transform)
+    if test_dataset.classes != classes:
+        raise SystemExit("Test class order differs from the training checkpoint")
+    test_loader = DataLoader(test_dataset, batch_size=32, shuffle=False, num_workers=0)
 
-print(f"\nExemples corrects   : {len(corrects)}")
-print(f"Exemples incorrects : {len(incorrects)}")
+    labels, predictions = [], []
+    with torch.inference_mode():
+        for images, targets in test_loader:
+            outputs = model(images.to(device))
+            predictions.extend(outputs.argmax(dim=1).cpu().tolist())
+            labels.extend(targets.tolist())
+    labels = np.asarray(labels)
+    predictions = np.asarray(predictions)
+    matrix = confusion_matrix(labels, predictions, labels=range(len(classes)))
+    accuracy = float((labels == predictions).mean())
 
-afficher_exemples(corrects[:8],   "Prédictions correctes",   "green")
-afficher_exemples(incorrects[:8], "Prédictions incorrectes", "red")
+    OUTPUT_DIR.mkdir(exist_ok=True)
+    save_confusion_matrix(matrix, classes)
+    save_error_examples(labels, predictions, classes)
+    result = {
+        "selected_checkpoint": str(checkpoint_path),
+        "model_type": checkpoint["model_type"],
+        "best_validation_accuracy": checkpoint["best_val_acc"],
+        "best_epoch": checkpoint["best_epoch"],
+        "split_seed": checkpoint["split_seed"],
+        "validation_fraction_of_train": checkpoint["val_fraction"],
+        "train_images": checkpoint["train_images"],
+        "validation_images": checkpoint["val_images"],
+        "test_images": len(test_dataset),
+        "test_accuracy": accuracy,
+        "classes": classes,
+        "confusion_matrix": matrix.tolist(),
+        "classification_report": classification_report(
+            labels, predictions, labels=range(len(classes)), target_names=classes,
+            output_dict=True, zero_division=0,
+        ),
+    }
+    RESULT_FILE.write_text(json.dumps(result, indent=2) + "\n")
+    print(f"Test accuracy: {accuracy:.4f} ({int((labels == predictions).sum())}/{len(labels)})")
+    print(f"Confusion matrix:\n{matrix}")
+    print(f"Saved {RESULT_FILE}")
+
+
+if __name__ == "__main__":
+    main()

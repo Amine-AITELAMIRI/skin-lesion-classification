@@ -12,15 +12,17 @@ from torch.utils.data import DataLoader
 
 from dataset import MelonaDataset
 from transforms import transform_base
+from split_data import make_train_val, class_names
 
 TRAIN_DIR = "melanoma-cancer-dataset/train"
-VAL_DIR   = "melanoma-cancer-dataset/test"
+train_dataset, val_dataset = make_train_val(TRAIN_DIR, transform_base, transform_base)
+train_paths = [train_dataset.dataset.samples[i][0] for i in train_dataset.indices]
 
 # ══════════════════════════════════════════════════════════════
 # Partie 1 – Explorer le dataset
 # ══════════════════════════════════════════════════════════════
 
-classes = sorted(os.listdir(TRAIN_DIR))
+classes = class_names(train_dataset)
 print(f"Nombre de classes : {len(classes)}")
 print(f"Classes           : {classes}")
 
@@ -38,10 +40,9 @@ fig, axes = plt.subplots(len(classes), 2, figsize=(8, 4 * len(classes)))
 axes = axes.flatten()
 i = 0
 for classe in classes:
-    dossier  = os.path.join(TRAIN_DIR, classe)
-    fichiers = [f for f in os.listdir(dossier) if f.lower().endswith(".jpg")][:2]
-    for nom in fichiers:
-        img = Image.open(os.path.join(dossier, nom)).convert("RGB")
+    fichiers = [path for path in train_paths if os.path.basename(os.path.dirname(path)) == classe][:2]
+    for path in fichiers:
+        img = Image.open(path).convert("RGB")
         axes[i].imshow(img)
         axes[i].set_title(classe)
         axes[i].axis("off")
@@ -65,10 +66,7 @@ plt.show()
 # Partie 2 – Une image pour PyTorch, c'est quoi ?
 # ══════════════════════════════════════════════════════════════
 
-chemin_exemple = os.path.join(
-    TRAIN_DIR, "Benign",
-    os.listdir(os.path.join(TRAIN_DIR, "Benign"))[0]
-)
+chemin_exemple = train_paths[0]
 img_pil = Image.open(chemin_exemple).convert("RGB")
 
 print("\n--- Partie 2 : inspection d'une image ---")
@@ -102,13 +100,10 @@ plt.show()
 # Partie 3 – Dataset, DataLoader, visualisation de batches
 # ══════════════════════════════════════════════════════════════
 
-train_dataset = MelonaDataset(TRAIN_DIR, transform=transform_base)
-val_dataset   = MelonaDataset(VAL_DIR,   transform=transform_base)
-
 print(f"\nTaille train : {len(train_dataset)}")
 print(f"Taille val   : {len(val_dataset)}")
-print(f"Classes      : {train_dataset.classes}")
-print(f"Mapping      : {train_dataset.class_to_idx}")
+print(f"Classes      : {class_names(train_dataset)}")
+print(f"Mapping      : {train_dataset.dataset.class_to_idx}")
 
 train_loader = DataLoader(train_dataset, batch_size=32, shuffle=True,  num_workers=0)
 val_loader   = DataLoader(val_dataset,   batch_size=32, shuffle=False, num_workers=0)
@@ -126,7 +121,7 @@ for nom_split, loader, dataset in [
     axes = axes.flatten()
     for i in range(8):
         axes[i].imshow(imgs[i].permute(1, 2, 0).numpy())
-        axes[i].set_title(dataset.classes[lbls[i].item()])
+        axes[i].set_title(class_names(dataset)[lbls[i].item()])
         axes[i].axis("off")
     plt.suptitle(f"Batch {nom_split} (8 images)")
     plt.tight_layout()
