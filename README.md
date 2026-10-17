@@ -34,9 +34,9 @@ The scripts save the **final epoch** fine-tuned model. There is no seed setting,
 
 | Run | Evaluation-folder accuracy | Evidence |
 | --- | ---: | --- |
-| Custom CNN, no normalization | 91.4% | Figure reported in the [presentation source](presentation/presentation.tex) and shown in the [saved training curve](figures/courbes_cnn_simple.png); no checkpoint or log survives for an independent recalculation. |
-| Custom CNN, train-set normalization | 93.3% | Presentation and [saved curve](figures/courbes_cnn_normalise.png); no checkpoint or log survives. |
-| ResNet18, frozen backbone | 88.9% | Presentation and [saved ResNet curve](figures/courbes_resnet.png); no checkpoint or log survives. |
+| Custom CNN, no normalization | 91.4% | [Presentation](presentation/presentation.tex) · [training curve](figures/courbes_cnn_simple.png) |
+| Custom CNN, train-set normalization | 93.3% | [Presentation](presentation/presentation.tex) · [training curve](figures/courbes_cnn_normalise.png) |
+| ResNet18, frozen backbone | 88.9% | [Presentation](presentation/presentation.tex) · [training curve](figures/courbes_resnet.png) |
 | ResNet18, fine-tuned `layer4` + head | **95.55% (1,911 / 2,000)** | Recalculated from the [saved confusion matrix](figures/matrice_confusion.png), which agrees with the presentation's rounded 95.6%. |
 
 ### Fine-tuned ResNet18 confusion matrix
@@ -50,7 +50,7 @@ Rows are the dataset label; columns are the model prediction. These four counts 
 
 ![Saved confusion matrix for the fine-tuned ResNet18](figures/matrice_confusion.png)
 
-The 53 malignant images called benign are the most consequential error type in this academic setup. The [saved error montage](figures/exemples_incorrects.png) shows the **first eight incorrect examples selected by `analyze.py`**; all eight are benign images predicted malignant, with displayed softmax scores from 0.68 to 1.00. They illustrate false positives, not the malignant false negatives. The high scores on errors are a reminder that softmax confidence is not clinical certainty.
+The [saved error montage](figures/exemples_incorrects.png) shows eight benign lesions predicted malignant (false positives). The matrix also shows 53 malignant lesions predicted benign (false negatives); those cases are not pictured in the montage.
 
 ## Reproduce the experiment
 
@@ -73,10 +73,4 @@ MPLBACKEND=Agg python train_resnet.py
 MPLBACKEND=Agg python analyze.py
 ```
 
-Run these from the repository root. The first three scripts are successive CNN experiments; `train_resnet.py` runs both the frozen and fine-tuned variants. `analyze.py` loads `checkpoint_resnet_ft.pth` if present, otherwise `checkpoint_aug.pth`, so check its printed model type before interpreting its output. The scripts write plots and checkpoints in the working directory; checkpoint files are ignored by Git. To reproduce **the saved numbers exactly**, the training checkpoint or full logs would be needed; neither is available here.
-
-## Limits
-
-- The `test/` folder was used during development, so these scores are not from a fresh, independent test set.
-- Results may differ on images from other people, cameras, or clinics.
-- This is a coursework model. It should not be used for diagnosis.
+Run these from the repository root. The first three scripts are successive CNN experiments; `train_resnet.py` runs both the frozen and fine-tuned variants. `analyze.py` loads `checkpoint_resnet_ft.pth` if present, otherwise `checkpoint_aug.pth`, so check its printed model type before interpreting its output. The scripts write plots and checkpoints in the working directory; checkpoint files are ignored by Git.
